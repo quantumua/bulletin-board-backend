@@ -1,0 +1,10 @@
+schema: spec-driven
+
+context: |
+  Bulletin board backend: Java 25, Spring Boot 4.1, Maven, Spring Data JPA, H2 in-memory.
+  Exposes the REST API under /api/ads (package com.example.bulletinboard.ad).
+  The shared API contract lives in the bulletin-board-plans store (spec: ads-api).
+  Cite it from proposals here; plan only this repo's implementation work locally.
+
+references:
+  - { id: bulletin-board-plans, remote: "https://github.com/quantumua/bulletin-board-plans.git" }
