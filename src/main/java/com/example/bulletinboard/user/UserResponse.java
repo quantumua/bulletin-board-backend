@@ -1,0 +1,8 @@
+package com.example.bulletinboard.user;
+
+public record UserResponse(Long id, String email) {
+
+    static UserResponse from(User user) {
+        return new UserResponse(user.getId(), user.getEmail());
+    }
+}
