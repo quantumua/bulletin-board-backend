@@ -18,6 +18,9 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(allowedOrigins)
-                .allowedMethods("GET", "POST", "PUT");
+                .allowedMethods("GET", "POST", "PUT")
+                .allowedHeaders("Content-Type", "X-XSRF-TOKEN")
+                // Session cookie must be sent cross-origin; requires explicit origins, not wildcards
+                .allowCredentials(true);
     }
 }

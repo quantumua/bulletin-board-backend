@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -45,6 +46,18 @@ class AdControllerTests {
                 .andExpect(jsonPath("$.title").value("Bike for sale"))
                 .andExpect(jsonPath("$.description").value("Almost new"))
                 .andExpect(jsonPath("$.createdAt").exists());
+    }
+
+    @Test
+    void createsAdAnonymouslyWithoutCsrfToken() throws Exception {
+        mockMvc.perform(post("/api/ads")
+                        .with(anonymous())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "Bike for sale", "description": "Almost new"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Bike for sale"));
     }
 
     @Test
@@ -101,5 +114,16 @@ class AdControllerTests {
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    @Test
+    void allowsCredentialsFromFrontendOrigin() throws Exception {
+        mockMvc.perform(options("/api/ads")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type, X-XSRF-TOKEN"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 }
