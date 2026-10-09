@@ -2,6 +2,7 @@ package com.example.bulletinboard.ad;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,14 +35,15 @@ public class AdController {
     }
 
     @PostMapping
-    public ResponseEntity<AdResponse> create(@Valid @RequestBody AdRequest request) {
-        AdResponse created = service.create(request);
+    public ResponseEntity<AdResponse> create(@Valid @RequestBody AdRequest request, Authentication authentication) {
+        AdResponse created = service.create(request, authentication.getName());
         var location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(created.id()).toUri();
         return ResponseEntity.created(location).body(created);
     }
 
     @PutMapping("/{id}")
-    public AdResponse update(@PathVariable long id, @Valid @RequestBody AdRequest request) {
-        return service.update(id, request);
+    public AdResponse update(@PathVariable long id, @Valid @RequestBody AdRequest request,
+                             Authentication authentication) {
+        return service.update(id, request, authentication.getName());
     }
 }

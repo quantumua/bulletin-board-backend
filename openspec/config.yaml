@@ -5,6 +5,12 @@ context: |
   Exposes the REST API under /api/ads (package com.example.bulletinboard.ad).
   The shared API contract lives in the bulletin-board-plans store (spec: ads-api).
   Cite it from proposals here; plan only this repo's implementation work locally.
+  Changes here implement store changes from team-plans and are named <store-change>-backend.
+  Read the store change first (`openspec show <store-change> --store team-plans`, including its
+  specs/ deltas and its "Repos" section), cite its specs, set skip_specs: true, and plan only
+  this repo's work. Record any contract gap you had to decide in the store design's
+  Clarifications section. In-flight deltas (for example user-auth) are not in references until
+  the store archives them, so read them from the store change.
 
 references:
-  - { id: bulletin-board-plans, remote: "https://github.com/quantumua/bulletin-board-plans.git" }
+  - { id: team-plans, remote: "https://github.com/quantumua/bulletin-board-plans.git" }
