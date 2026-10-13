@@ -5,8 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 
+import java.time.Instant;
 import java.util.Locale;
 
 @Entity
@@ -30,6 +33,11 @@ public class AppUser {
     @Column(nullable = false)
     private String passwordHash;
 
+    // The default is a safety net for rows created outside JPA; @PrePersist always sets the value
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
     protected AppUser() {
     }
 
@@ -37,6 +45,11 @@ public class AppUser {
         this.username = username;
         this.usernameLower = normalize(username);
         this.passwordHash = passwordHash;
+    }
+
+    @PrePersist
+    void onCreate() {
+        createdAt = Instant.now();
     }
 
     public static String normalize(String username) {
@@ -53,5 +66,9 @@ public class AppUser {
 
     public String getPasswordHash() {
         return passwordHash;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

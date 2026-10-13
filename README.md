@@ -33,6 +33,7 @@ The H2 console is enabled in Spring Boot but is not reachable while Spring Secur
 | POST   | `/api/auth/login`    | public   | Log in (sets session cookie) |
 | GET    | `/api/auth/me`       | login    | Current user           |
 | POST   | `/api/auth/logout`   | public   | Log out                |
+| GET    | `/api/users`         | login    | List registered users, newest registration first |
 
 Ad request body for POST/PUT:
 
@@ -44,6 +45,11 @@ Ad request body for POST/PUT:
 Ads in responses carry `author`, the owner's username (`null` for ads that predate login; those cannot be edited).
 Errors are returned as RFC 9457 problem details (`401` not logged in, `403` not the owner or missing CSRF token,
 `409` username taken).
+
+`GET /api/users` returns `[{ "id": 1, "username": "alice", "createdAt": "2026-10-09T10:15:30.123456Z" }, ...]`:
+exactly these three fields, no password data, and it sets no cookies (not even `XSRF-TOKEN`). `POST`, `PUT` and
+`DELETE` on it are not offered (`405` with a valid CSRF token, `403` without one, `401` when anonymous).
+Anonymous `401` responses never start a session.
 
 Account body for register and login: `{ "username": "alice", "password": "s3cret-pass" }`
 (username 3-50 characters, unique ignoring case; password 8-72 characters).
@@ -61,6 +67,7 @@ curl -c jar -b jar -H 'Content-Type: application/json'   -d '{"username":"alice"
 curl -c jar -b jar localhost:8080/api/auth/me            # issues the XSRF-TOKEN cookie
 TOKEN=$(awk '$6=="XSRF-TOKEN"{print $7}' jar)
 curl -b jar -H "X-XSRF-TOKEN: $TOKEN" -H 'Content-Type: application/json'   -d '{"title":"Bike","description":"Almost new"}' localhost:8080/api/ads
+curl -b jar localhost:8080/api/users                       # list registered users
 curl -b jar -H "X-XSRF-TOKEN: $TOKEN" -X POST localhost:8080/api/auth/logout
 ```
 

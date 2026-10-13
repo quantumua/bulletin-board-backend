@@ -15,11 +15,14 @@ import java.io.IOException;
  */
 class CsrfCookieFilter extends OncePerRequestFilter {
 
+    // The user-directory contract says GET /api/users sets no cookies, which includes XSRF-TOKEN
+    private static final String COOKIE_FREE_PATH = "/api/users";
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
-        if (token != null) {
+        if (token != null && !request.getRequestURI().equals(COOKIE_FREE_PATH)) {
             token.getToken();
         }
         chain.doFilter(request, response);

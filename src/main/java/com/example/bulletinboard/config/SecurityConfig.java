@@ -37,6 +37,9 @@ public class SecurityConfig {
             throws Exception {
         http
                 .cors(Customizer.withDefaults())
+                // A REST API has no page to redirect back to; the default request cache would start a session
+                // (and set JSESSIONID) on every anonymous 401
+                .requestCache(cache -> cache.disable())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         // Plain (unmasked) handler so the frontend can echo the cookie value in X-XSRF-TOKEN

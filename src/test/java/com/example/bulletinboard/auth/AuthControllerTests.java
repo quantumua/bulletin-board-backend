@@ -13,7 +13,11 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -66,6 +70,21 @@ class AuthControllerTests {
         assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
                 .noneMatch(cookie -> cookie.startsWith("JSESSIONID"));
         assertThat(userRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void recordsRegistrationTimeWithoutChangingTheResponse() throws Exception {
+        // Truncated because the database may store fewer fractional digits than Instant.now() returns
+        Instant before = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+        mockMvc.perform(register(CREDENTIALS))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$", aMapWithSize(2)))
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.username").value("alice"));
+
+        Instant createdAt = userRepository.findAll().getFirst().getCreatedAt();
+        assertThat(createdAt).isAfterOrEqualTo(before);
     }
 
     @Test

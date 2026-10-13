@@ -75,6 +75,55 @@ class SessionCookieTests {
         assertThat(withToken.body()).contains("\"author\":\"alice\"");
     }
 
+    @Test
+    void ordinaryReadsIssueTheCsrfCookieWhenTheClientHasNone() throws Exception {
+        // Control for the user-directory test below: without it, "no Set-Cookie" could pass vacuously
+        HttpResponse<String> ads = send("GET", "/api/ads", null, null);
+
+        assertThat(setCookie(ads, "XSRF-TOKEN")).isPresent();
+    }
+
+    @Test
+    void userDirectorySetsNoCookiesForLoggedInClient() throws Exception {
+        send("POST", "/api/auth/register", CREDENTIALS, null);
+        HttpResponse<String> login = send("POST", "/api/auth/login", CREDENTIALS, null);
+        String session = cookiePair(setCookie(login, "JSESSIONID").orElseThrow());
+
+        // The client holds a session but no XSRF-TOKEN cookie, so other endpoints would issue one
+        HttpResponse<String> users = send("GET", "/api/users", null, session);
+
+        assertThat(users.statusCode()).isEqualTo(200);
+        assertThat(users.headers().allValues("Set-Cookie")).isEmpty();
+    }
+
+    @Test
+    void userDirectorySetsNoCookiesWhenAnonymous() throws Exception {
+        HttpResponse<String> users = send("GET", "/api/users", null, null);
+
+        assertThat(users.statusCode()).isEqualTo(401);
+        assertThat(users.headers().allValues("Set-Cookie")).isEmpty();
+    }
+
+    @Test
+    void anonymousUnauthorizedResponseDoesNotStartASession() throws Exception {
+        HttpResponse<String> me = send("GET", "/api/auth/me", null, null);
+
+        assertThat(me.statusCode()).isEqualTo(401);
+        assertThat(setCookie(me, "JSESSIONID")).isEmpty();
+    }
+
+    @Test
+    void anonymousWriteAfterAnAnonymousReadIsUnauthorizedNotForbidden() throws Exception {
+        // Reproduces the old behavior: the 401 on /me started a session, so the next anonymous write hit the CSRF check
+        HttpResponse<String> me = send("GET", "/api/auth/me", null, null);
+        String cookies = me.headers().allValues("Set-Cookie").stream().map(SessionCookieTests::cookiePair)
+                .reduce((a, b) -> a + "; " + b).orElse(null);
+
+        HttpResponse<String> create = send("POST", "/api/ads", AD_JSON, cookies);
+
+        assertThat(create.statusCode()).isEqualTo(401);
+    }
+
     private HttpResponse<String> send(String method, String path, String body, String cookies, String... headers)
             throws Exception {
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))

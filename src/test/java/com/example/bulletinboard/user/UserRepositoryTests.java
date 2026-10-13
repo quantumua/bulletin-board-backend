@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -34,5 +36,17 @@ class UserRepositoryTests {
 
         assertThat(repository.findByUsernameLower(AppUser.normalize("ALICE")))
                 .get().extracting(AppUser::getUsername).isEqualTo("Alice");
+    }
+
+    @Test
+    void recordsCreationTimeOnceAndKeepsItOnUpdate() {
+        AppUser saved = repository.saveAndFlush(new AppUser("alice", "hash"));
+        assertThat(saved.getCreatedAt()).isNotNull();
+
+        AppUser reloaded = repository.findById(saved.getId()).orElseThrow();
+        Instant stored = reloaded.getCreatedAt();
+        repository.saveAndFlush(reloaded);
+
+        assertThat(repository.findById(saved.getId()).orElseThrow().getCreatedAt()).isEqualTo(stored);
     }
 }
