@@ -6,5 +6,6 @@ import java.util.List;
 
 public interface AdRepository extends JpaRepository<Ad, Long> {
 
-    List<Ad> findAllByOrderByCreatedAtDesc();
+    // Newest first; id breaks ties between ads created in the same instant so the order is stable
+    List<Ad> findAllByOrderByCreatedAtDescIdDesc();
 }

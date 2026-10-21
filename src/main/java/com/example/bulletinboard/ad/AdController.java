@@ -1,5 +1,6 @@
 package com.example.bulletinboard.ad;
 
+import com.example.bulletinboard.auth.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 
+/**
+ * Legacy ads API {@code /api/ads} (contract C2, deprecated): the old response shape with the same
+ * login, ownership and anti-forgery rules as {@code /api/v1/ads} (NFR5.3). Every response carries the
+ * {@code Deprecation} and {@code Link} headers ({@link LegacyAdsDeprecationFilter}).
+ */
 @RestController
 @RequestMapping("/api/ads")
 public class AdController {
@@ -34,14 +40,14 @@ public class AdController {
     }
 
     @PostMapping
-    public ResponseEntity<AdResponse> create(@Valid @RequestBody AdRequest request) {
-        AdResponse created = service.create(request);
+    public ResponseEntity<AdResponse> create(@Valid @RequestBody AdRequest request, CurrentUser caller) {
+        AdResponse created = service.createLegacy(request, caller);
         var location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(created.id()).toUri();
         return ResponseEntity.created(location).body(created);
     }
 
     @PutMapping("/{id}")
-    public AdResponse update(@PathVariable long id, @Valid @RequestBody AdRequest request) {
-        return service.update(id, request);
+    public AdResponse update(@PathVariable long id, @Valid @RequestBody AdRequest request, CurrentUser caller) {
+        return service.updateLegacy(id, request, caller);
     }
 }
