@@ -31,12 +31,27 @@ public class Ad {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    /**
+     * Account id of the poster, set once at creation from the logged-in caller (FR4.2, ADR-005).
+     * {@code null} for an unowned ad, which nobody can edit (FR4.5).
+     */
+    @Column(name = "owner_id", updatable = false)
+    private Long ownerId;
+
     protected Ad() {
     }
 
+    /**
+     * Creates an unowned ad.
+     */
     public Ad(String title, String description) {
+        this(title, description, null);
+    }
+
+    public Ad(String title, String description, Long ownerId) {
         this.title = title;
         this.description = description;
+        this.ownerId = ownerId;
     }
 
     @PrePersist
@@ -73,5 +88,9 @@ public class Ad {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Long getOwnerId() {
+        return ownerId;
     }
 }

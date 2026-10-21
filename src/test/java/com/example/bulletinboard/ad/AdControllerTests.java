@@ -1,5 +1,8 @@
 package com.example.bulletinboard.ad;
 
+import com.example.bulletinboard.account.UserAccountRepository;
+import com.example.bulletinboard.support.TestAccounts;
+import com.example.bulletinboard.support.TestAccounts.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,8 +11,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
+import static com.example.bulletinboard.support.TestAccounts.xsrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -28,14 +33,22 @@ class AdControllerTests {
     @Autowired
     private AdRepository repository;
 
+    @Autowired
+    private UserAccountRepository accountRepository;
+
+    private User user;
+
     @BeforeEach
-    void cleanDatabase() {
+    void cleanDatabase() throws Exception {
         repository.deleteAll();
+        accountRepository.deleteAll();
+        user = TestAccounts.signUp(mockMvc, "Ann");
     }
 
     @Test
     void createsAd() throws Exception {
         mockMvc.perform(post("/api/ads")
+                        .with(user.loggedIn())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title": "Bike for sale", "description": "Almost new"}
@@ -50,6 +63,7 @@ class AdControllerTests {
     @Test
     void rejectsInvalidAd() throws Exception {
         mockMvc.perform(post("/api/ads")
+                        .with(user.loggedIn())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title": " ", "description": "Almost new"}
@@ -59,9 +73,10 @@ class AdControllerTests {
 
     @Test
     void updatesAd() throws Exception {
-        Ad ad = repository.save(new Ad("Bike", "Old"));
+        Ad ad = repository.save(new Ad("Bike", "Old", user.id()));
 
         mockMvc.perform(put("/api/ads/{id}", ad.getId())
+                        .with(user.loggedIn())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title": "Red bike", "description": "Freshly painted"}
@@ -75,6 +90,7 @@ class AdControllerTests {
     @Test
     void returnsNotFoundWhenUpdatingMissingAd() throws Exception {
         mockMvc.perform(put("/api/ads/{id}", 999)
+                        .with(user.loggedIn())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title": "Red bike", "description": "Freshly painted"}
@@ -101,5 +117,53 @@ class AdControllerTests {
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    // --- regressions for the fixed vulnerability on the legacy path (NFR5.3, NFR6.2) ---
+
+    @Test
+    void refusesAnonymousCreateOnLegacyPath() throws Exception {
+        mockMvc.perform(post("/api/ads")
+                        .with(xsrf(TestAccounts.fetchXsrfCookie(mockMvc)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "Bike for sale", "description": "Almost new"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("not_authenticated"))
+                .andExpect(header().string("Deprecation", "true"));
+
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void refusesNonOwnerEditOnLegacyPath() throws Exception {
+        Ad ad = repository.save(new Ad("Bike", "Old", user.id()));
+        User other = TestAccounts.signUp(mockMvc, "Bob");
+
+        mockMvc.perform(put("/api/ads/{id}", ad.getId())
+                        .with(other.loggedIn())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "Hacked", "description": "Hacked"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("not_owner"));
+
+        assertThat(repository.findById(ad.getId()).orElseThrow().getTitle()).isEqualTo("Bike");
+    }
+
+    @Test
+    void keepsOldResponseShapeAndAnnouncesDeprecation() throws Exception {
+        Ad ad = repository.save(new Ad("Bike", "Old", user.id()));
+
+        mockMvc.perform(get("/api/ads/{id}", ad.getId()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Deprecation", "true"))
+                .andExpect(header().string("Link", "</api/v1/ads>; rel=\"successor-version\""))
+                .andExpect(jsonPath("$.id").value(ad.getId()))
+                .andExpect(jsonPath("$.title").value("Bike"))
+                .andExpect(jsonPath("$.authorName").doesNotExist())
+                .andExpect(jsonPath("$.ownedByMe").doesNotExist());
     }
 }
